@@ -1,0 +1,48 @@
+==============================================================
+ fastp GPU correctness validation — Sun Mar  8 18:56:10 UTC 2026
+ CPU: /home/mpiuser/tools/bin/fastp_d0bromir_cpu
+ GPU: /home/mpiuser/tools/bin/fastp_d0bromir_gpu
+ Threads: 8
+==============================================================
+
+--------------------------------------------------------------
+FILE: panel_S1A_R1
+      /home/mpiuser/FASTQ/S1A_S1_L001_R1_001.fastq.gz
+
+[CPU] running...
+[CPU] done in 7s
+[GPU] running...
+[GPU] done in 8s
+
+  PASS  summary.before_filtering.total_reads                     cpu=1381894         gpu=1381894
+  PASS  summary.before_filtering.total_bases                     cpu=208665994       gpu=208665994
+  PASS  summary.before_filtering.q20_bases                       cpu=197000126       gpu=197000126
+  PASS  summary.before_filtering.q30_bases                       cpu=194261258       gpu=194261258
+  PASS  summary.before_filtering.q20_rate                        cpu=0.944093        gpu=0.944093
+  PASS  summary.before_filtering.q30_rate                        cpu=0.930967        gpu=0.930967
+  PASS  summary.before_filtering.gc_content                      cpu=0.480537        gpu=0.480537
+  PASS  summary.after_filtering.total_reads                      cpu=1381299         gpu=1381299
+  PASS  summary.after_filtering.total_bases                      cpu=208576149       gpu=208576149
+  PASS  summary.after_filtering.q20_bases                        cpu=196957008       gpu=196957008
+  PASS  summary.after_filtering.q30_bases                        cpu=194231848       gpu=194231848
+  PASS  summary.after_filtering.q20_rate                         cpu=0.944293        gpu=0.944293
+  PASS  summary.after_filtering.q30_rate                         cpu=0.931228        gpu=0.931228
+  PASS  filtering_result.passed_filter_reads                     cpu=1381299         gpu=1381299
+  PASS  filtering_result.low_quality_reads                       cpu=595             gpu=595
+  PASS  filtering_result.too_many_N_reads                        cpu=0               gpu=0
+  PASS  filtering_result.too_short_reads                         cpu=0               gpu=0
+  PASS  filtering_result.too_long_reads                          cpu=0               gpu=0
+
+  [FASTQ diff] decompressing and comparing output...
+  PASS  FASTQ output MD5 IDENTICAL  (26fb6cd0258306885015c3880872f231)
+
+  RESULT: PASS  panel_S1A_R1
+
+--------------------------------------------------------------
+FILE: wgs_6G_ERR1044906
+      /home/mpiuser/FASTQ/WGS/ERR1044906_1.fastq.gz
+
+[CPU] running...
+Terminated
+=== WGS validation start Sun Mar  8 19:02:31 UTC 2026 ===
+=== WGS runs complete Sun Mar  8 19:15:37 UTC 2026 ===

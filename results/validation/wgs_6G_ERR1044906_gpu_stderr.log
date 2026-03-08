@@ -1,0 +1,39 @@
+[19:04:12] fastp 1.2.2 starting 
+[19:04:12] [GPU] CUDA GPU available (Device 0) - statistics GPU-accelerated 
+Detecting adapter sequence for read1...
+>Illumina Paired End Adapter 2
+GATCGGAAGAGCGGTTCAGCAGGAATGCCGAG
+
+[19:04:14] [GPU] CUDA GPU available (Device 0) - statistics GPU-accelerated 
+[19:04:14] [GPU] CUDA GPU available (Device 1) - statistics GPU-accelerated 
+[19:04:14] [GPU] Dual-GPU mode: Device 0 + Device 1 active 
+Read1 before filtering:
+total reads: 78705555
+total bases: 7083499950
+Q20 bases: 6540091256(92.3285%)
+Q30 bases: 6025638692(85.0658%)
+Q40 bases: 1520447(0.0214646%)
+
+Read1 after filtering:
+total reads: 74439479
+total bases: 6611567726
+Q20 bases: 6304034289(95.3486%)
+Q30 bases: 5834919136(88.2532%)
+Q40 bases: 1506324(0.0227832%)
+
+Filtering result:
+reads passed filter: 74439479
+reads failed due to low quality: 3701209
+reads failed due to too many N: 20364
+reads failed due to too short: 2203
+reads failed due to adapter dimer: 542300
+reads with adapter trimmed: 4687305
+bases trimmed due to adapters: 136786294
+
+Duplication rate (may be overestimated since this is SE data): 6.55546%
+
+JSON report: /home/mpiuser/benchmark/results/validation/wgs_6G_ERR1044906_gpu.json
+HTML report: /home/mpiuser/benchmark/results/validation/wgs_6G_ERR1044906_gpu.html
+
+/home/mpiuser/tools/bin/fastp_d0bromir_gpu -w 8 -i /home/mpiuser/FASTQ/WGS/ERR1044906_1.fastq.gz -o /dev/null -j /home/mpiuser/benchmark/results/validation/wgs_6G_ERR1044906_gpu.json -h /home/mpiuser/benchmark/results/validation/wgs_6G_ERR1044906_gpu.html 
+fastp v1.2.2, time used: 101 seconds

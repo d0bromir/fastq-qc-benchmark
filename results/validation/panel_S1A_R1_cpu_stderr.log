@@ -1,0 +1,37 @@
+[18:56:10] fastp 1.2.2 starting 
+[18:56:10] [GPU] CUDA support not compiled - statistics will use CPU 
+Detecting adapter sequence for read1...
+>RNA_PCR_Primer_Index_1_(RPI1)_2,9
+TGGAATTCTCGGGTGCCAAGGAACTCCAGTCACATCACGATCTCGTATGCCGTCTTCTGCTTG
+No adapter detected for read1
+
+Read1 before filtering:
+total reads: 1381894
+total bases: 208665994
+Q20 bases: 197000126(94.4093%)
+Q30 bases: 194261258(93.0967%)
+Q40 bases: 245896(0.117842%)
+
+Read1 after filtering:
+total reads: 1381299
+total bases: 208576149
+Q20 bases: 196957008(94.4293%)
+Q30 bases: 194231848(93.1228%)
+Q40 bases: 245896(0.117893%)
+
+Filtering result:
+reads passed filter: 1381299
+reads failed due to low quality: 595
+reads failed due to too many N: 0
+reads failed due to too short: 0
+reads failed due to adapter dimer: 0
+reads with adapter trimmed: 0
+bases trimmed due to adapters: 0
+
+Duplication rate (may be overestimated since this is SE data): 84.3282%
+
+JSON report: /home/mpiuser/benchmark/results/validation/panel_S1A_R1_cpu.json
+HTML report: /home/mpiuser/benchmark/results/validation/panel_S1A_R1_cpu.html
+
+/home/mpiuser/tools/bin/fastp_d0bromir_cpu -w 8 -i /home/mpiuser/FASTQ/S1A_S1_L001_R1_001.fastq.gz -o /home/mpiuser/benchmark/results/validation/panel_S1A_R1_cpu.fastq.gz -j /home/mpiuser/benchmark/results/validation/panel_S1A_R1_cpu.json -h /home/mpiuser/benchmark/results/validation/panel_S1A_R1_cpu.html 
+fastp v1.2.2, time used: 7 seconds

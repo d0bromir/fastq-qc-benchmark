@@ -1,0 +1,38 @@
+[19:08:19] fastp 1.2.2 starting 
+[19:08:19] [GPU] CUDA GPU available (Device 0) - statistics GPU-accelerated 
+Detecting adapter sequence for read1...
+No adapter detected for read1
+
+[19:08:32] [GPU] CUDA GPU available (Device 0) - statistics GPU-accelerated 
+[19:08:32] [GPU] CUDA GPU available (Device 1) - statistics GPU-accelerated 
+[19:08:32] [GPU] Dual-GPU mode: Device 0 + Device 1 active 
+Read1 before filtering:
+total reads: 106405551
+total bases: 10640555100
+Q20 bases: 9877630715(92.83%)
+Q30 bases: 9184913167(86.3199%)
+Q40 bases: 1591174(0.0149539%)
+
+Read1 after filtering:
+total reads: 100893908
+total bases: 10089390800
+Q20 bases: 9655573927(95.7003%)
+Q30 bases: 9009211361(89.2939%)
+Q40 bases: 1582832(0.0156881%)
+
+Filtering result:
+reads passed filter: 100893908
+reads failed due to low quality: 5503375
+reads failed due to too many N: 8268
+reads failed due to too short: 0
+reads failed due to adapter dimer: 0
+reads with adapter trimmed: 0
+bases trimmed due to adapters: 0
+
+Duplication rate (may be overestimated since this is SE data): 4.33412%
+
+JSON report: /home/mpiuser/benchmark/results/validation/wgs_8G_ERR1044900_gpu.json
+HTML report: /home/mpiuser/benchmark/results/validation/wgs_8G_ERR1044900_gpu.html
+
+/home/mpiuser/tools/bin/fastp_d0bromir_gpu -w 8 -i /home/mpiuser/FASTQ/WGS/ERR1044900_1.fastq.gz -o /dev/null -j /home/mpiuser/benchmark/results/validation/wgs_8G_ERR1044900_gpu.json -h /home/mpiuser/benchmark/results/validation/wgs_8G_ERR1044900_gpu.html 
+fastp v1.2.2, time used: 130 seconds

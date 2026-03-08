@@ -1,0 +1,29 @@
+------------------------------------------------------------------
+GPU fastp Correctness Validation Report
+Date: 2025-03-08
+CPU binary: ~/tools/bin/fastp_d0bromir_cpu
+GPU binary: ~/tools/bin/fastp_d0bromir_gpu
+Threads: 8  |  Output: /dev/null (stats-only for WGS)
+------------------------------------------------------------------
+
+Fields compared (18 total):
+  INT  (exact match): total_reads, total_bases, q20_bases, q30_bases
+         (x2 before/after filtering) + 5 filtering_result counts
+  FLOAT (rel ≤0.01%): q20_rate, q30_rate, gc_content
+         (x2 before/after filtering)
+
+Results:
+  [PASS]  Panel 148 MB  (panel_S1A_R1)
+  [PASS]  WGS   6.0 GB  (wgs_6G_ERR1044906)
+  [PASS]  WGS   8.0 GB  (wgs_8G_ERR1044900)
+  [PASS]  WGS   9.0 GB  (wgs_9G_ERR1044320)
+
+OVERALL RESULT: ALL PASS
+GPU fastp output is statistically identical to CPU fastp for all test files.
+
+Panel FASTQ bit-exact check:
+  CPU output MD5: 26fb6cd0258306885015c3880872f231
+  GPU output MD5: 26fb6cd0258306885015c3880872f231
+  FASTQ MD5: IDENTICAL
+
+------------------------------------------------------------------

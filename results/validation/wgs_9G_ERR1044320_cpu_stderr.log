@@ -1,0 +1,35 @@
+[19:10:31] fastp 1.2.2 starting 
+[19:10:31] [GPU] CUDA support not compiled - statistics will use CPU 
+Detecting adapter sequence for read1...
+No adapter detected for read1
+
+Read1 before filtering:
+total reads: 119964956
+total bases: 11996495600
+Q20 bases: 11265077736(93.9031%)
+Q30 bases: 10498584875(87.5138%)
+Q40 bases: 1707479(0.0142331%)
+
+Read1 after filtering:
+total reads: 115314310
+total bases: 11531431000
+Q20 bases: 11082430638(96.1063%)
+Q30 bases: 10360153939(89.8427%)
+Q40 bases: 1694161(0.0146917%)
+
+Filtering result:
+reads passed filter: 115314310
+reads failed due to low quality: 4644036
+reads failed due to too many N: 6610
+reads failed due to too short: 0
+reads failed due to adapter dimer: 0
+reads with adapter trimmed: 0
+bases trimmed due to adapters: 0
+
+Duplication rate (may be overestimated since this is SE data): 4.76837%
+
+JSON report: /home/mpiuser/benchmark/results/validation/wgs_9G_ERR1044320_cpu.json
+HTML report: /home/mpiuser/benchmark/results/validation/wgs_9G_ERR1044320_cpu.html
+
+/home/mpiuser/tools/bin/fastp_d0bromir_cpu -w 8 -i /home/mpiuser/FASTQ/WGS/ERR1044320_1.fastq.gz -o /dev/null -j /home/mpiuser/benchmark/results/validation/wgs_9G_ERR1044320_cpu.json -h /home/mpiuser/benchmark/results/validation/wgs_9G_ERR1044320_cpu.html 
+fastp v1.2.2, time used: 155 seconds
