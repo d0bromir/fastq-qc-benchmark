@@ -372,8 +372,10 @@ Table~\ref{tab:versions} summarises the software versions and key build flags.
 \noindent
 fastp (both variants) was linked against Intel ISA-L (\texttt{libisal}) for
 SIMD-accelerated decompression and libdeflate for deflate operations, both
-compiled with \texttt{-march=native} to exploit ARM SVE/NEON vector
-instructions available on the Neoverse N1.
+compiled with \texttt{-march=native} to exploit ARM Advanced SIMD (NEON)
+vector instructions on the Neoverse N1.
+(Note: SVE is not exposed by the hypervisor on this platform;
+the kernel \texttt{Features} field lists \texttt{asimd} but not \texttt{sve}.)
 
 % ===========================================================================
 \section{Input Data}
@@ -685,7 +687,7 @@ drop-in replacement in any pipeline that invokes FastQC in single-threaded mode.
 The speedup is attributable to three factors: (i)~absence of JVM startup and
 just-in-time compilation overhead; (ii)~more cache-friendly data structures in
 the C++ implementation; and (iii)~SIMD-friendly inner loops that the GCC
-\texttt{-march=native} flag exposes on the Neoverse N1 NEON/SVE units.
+\texttt{-march=native} flag exposes on the Neoverse N1 Advanced SIMD (NEON) units.
 
 For QC-only pipelines (no trimming required), Falco represents the best single-
 threaded option and requires no configuration of thread counts.
@@ -709,7 +711,7 @@ worker threads waste CPU resources without improving throughput.
 This finding is consistent with earlier benchmarks on x86 hardware~\cite{Chen2018fastp}
 and confirms that gzip decompression is the dominant bottleneck regardless of
 processor architecture.  The availability of accelerated decompression via
-libisal and libdeflate (both compiled with SVE NEON intrinsics via
+libisal and libdeflate (both compiled with NEON/Advanced SIMD intrinsics via
 \texttt{-march=native}) delayed saturation compared to a na\"ive \texttt{zlib}
 build, but could not eliminate it.
 
@@ -817,8 +819,9 @@ Examining wall-clock time as a function of compressed file size (148\,MB,
 
 The ARM Neoverse N1 delivers competitive throughput for these bioinformatics
 workloads.  fastp compiled with \texttt{-march=native} exploits Advanced SIMD
-(NEON) intrinsics; the libisal decompression library targets ARMv8.2-A SVE
-when available.  Observed throughput on WGS-6G at 8T (${\approx}60$\,MB/s
+(NEON) intrinsics; the libisal decompression library similarly targets NEON
+on this platform (the Neoverse N1's SVE capability is not exposed by the
+hypervisor; SVE2 requires ARMv9 / Neoverse N2 or later).  Observed throughput on WGS-6G at 8T (${\approx}60$\,MB/s
 uncompressed throughput) is within 15\% of published x86 results on comparable
 clock-speed processors~\cite{Chen2018fastp}, confirming that ARM servers are
 viable for genomics QC workloads and do not require x86 dependencies.
@@ -854,9 +857,11 @@ Neoverse N1 server with NVIDIA A100 GPUs.  Our principal conclusions are:
 \end{enumerate}
 
 \paragraph{Future Work.}
-Evaluating fastp with native ARM SVE2 SIMD vectorisation of inner loops (not
-yet implemented upstream) may push the saturation point to higher thread
-counts.  The GPU-accelerated BGZF decompressor implemented in this fork
+Re-evaluating on a next-generation Neoverse N2 (ARMv9) platform with SVE2
+SIMD support may push the fastp saturation point to higher thread counts;
+the current Neoverse N1 has SVE2-capable silicon but it is not exposed by
+the hypervisor on this system.  SVE2 vectorisation of the inner quality-score
+accumulation loop is not yet implemented upstream.  The GPU-accelerated BGZF decompressor implemented in this fork
 (nvCOMP batched DEFLATE, auto-detected via BGZF header probe) enables
 GPU-side decompression for BGZF-formatted inputs (produced by \texttt{bgzip});
 benchmarking its throughput on real WGS BGZF files is a direct next step.
