@@ -1,0 +1,86 @@
+GPU binary: 12M Mar 8 11:13 /home/mpiuser/tools/bin/fastp_d0bromir_gpu
+Testing GPU init...
+[11:21:22] fastp 1.2.2 starting 
+[11:21:25] [GPU] CUDA GPU available (Device 0) - statistics GPU-accelerated 
+fastp 1.2.2
+
+=================================================================
+ GPU BENCHMARK START  2026-03-08 11:21:26
+ Binary: /home/mpiuser/tools/bin/fastp_d0bromir_gpu
+=================================================================
+
+─── Section A: GPU mode — all files, -w 1..32 ───────────────────
+
+>>> File: /home/mpiuser/FASTQ/S1A_S1_L001_R1_001.fastq.gz  (148M)
+  [fastp_d0bromir GPU — dual-GPU] sweeping -w 1..32
+  → fastp_d0bromir  threads=1  file=S1A_S1_L001_R1_001.fastq.gz  (3 rep(s))
+    rep 1: 10.773s
+    rep 2: 10.626s
+    rep 3: 10.658s
+  → fastp_d0bromir  threads=2  file=S1A_S1_L001_R1_001.fastq.gz  (3 rep(s))
+    rep 1: 8.109s
+    rep 2: 8.158s
+    rep 3: 8.178s
+  → fastp_d0bromir  threads=4  file=S1A_S1_L001_R1_001.fastq.gz  (3 rep(s))
+    rep 1: 7.521s
+    rep 2: 7.503s
+    rep 3: 7.432s
+  → fastp_d0bromir  threads=8  file=S1A_S1_L001_R1_001.fastq.gz  (3 rep(s))
+    rep 1: 7.492s
+    rep 2: 7.408s
+    rep 3: 7.442s
+  → fastp_d0bromir  threads=16  file=S1A_S1_L001_R1_001.fastq.gz  (3 rep(s))
+    rep 1: 7.667s
+    rep 2: 7.489s
+    rep 3: 7.577s
+  → fastp_d0bromir  threads=32  file=S1A_S1_L001_R1_001.fastq.gz  (3 rep(s))
+    rep 1: 7.741s
+    rep 2: 7.685s
+    rep 3: 7.667s
+
+>>> File: /home/mpiuser/FASTQ/WGS/ERR1044906_1.fastq.gz  (6.0G)
+  [fastp_d0bromir GPU — dual-GPU] sweeping -w 1..32
+  → fastp_d0bromir  threads=1  file=ERR1044906_1.fastq.gz  (1 rep(s))
+    rep 1: 616.711s
+  → fastp_d0bromir  threads=2  file=ERR1044906_1.fastq.gz  (1 rep(s))
+    rep 1: 327.296s
+  → fastp_d0bromir  threads=4  file=ERR1044906_1.fastq.gz  (1 rep(s))
+    rep 1: 170.282s
+  → fastp_d0bromir  threads=8  file=ERR1044906_1.fastq.gz  (1 rep(s))
+    rep 1: 103.027s
+  → fastp_d0bromir  threads=16  file=ERR1044906_1.fastq.gz  (1 rep(s))
+    rep 1: 103.309s
+  → fastp_d0bromir  threads=32  file=ERR1044906_1.fastq.gz  (1 rep(s))
+    rep 1: 105.806s
+
+>>> File: /home/mpiuser/FASTQ/WGS/ERR1044900_1.fastq.gz  (8.5G)
+  [fastp_d0bromir GPU — dual-GPU] sweeping -w 1..32
+  → fastp_d0bromir  threads=1  file=ERR1044900_1.fastq.gz  (1 rep(s))
+    rep 1: 310.436s
+  → fastp_d0bromir  threads=2  file=ERR1044900_1.fastq.gz  (1 rep(s))
+    rep 1: 188.988s
+  → fastp_d0bromir  threads=4  file=ERR1044900_1.fastq.gz  (1 rep(s))
+    rep 1: 152.698s
+  → fastp_d0bromir  threads=8  file=ERR1044900_1.fastq.gz  (1 rep(s))
+    rep 1: 150.876s
+  → fastp_d0bromir  threads=16  file=ERR1044900_1.fastq.gz  (1 rep(s))
+    rep 1: 153.291s
+  → fastp_d0bromir  threads=32  file=ERR1044900_1.fastq.gz  (1 rep(s))
+=== Resuming: WGS-8G 32T ===
+=== Resuming: WGS-8G 32T ===
+    fastp_d0bromir threads=32 ERR1044900_1.fastq.gz: 159.926s
+=== WGS-9G (all threads) ===
+    fastp_d0bromir threads=1 ERR1044320_1.fastq.gz: 348.977s
+    fastp_d0bromir threads=2 ERR1044320_1.fastq.gz: 209.443s
+    fastp_d0bromir threads=4 ERR1044320_1.fastq.gz: 165.885s
+    fastp_d0bromir threads=8 ERR1044320_1.fastq.gz: 166.537s
+    fastp_d0bromir threads=16 ERR1044320_1.fastq.gz: 166.990s
+    fastp_d0bromir threads=32 ERR1044320_1.fastq.gz: 176.088s
+=== Section C: CPU-forced vs GPU (WGS-6G) ===
+    fastp_d0bromir_gpu_binary threads=4 ERR1044906_1.fastq.gz: 165.356s
+    fastp_d0bromir_gpu_binary threads=4 ERR1044906_1.fastq.gz: 170.428s
+    fastp_d0bromir_gpu_binary threads=8 ERR1044906_1.fastq.gz: 103.259s
+    fastp_d0bromir_gpu_binary threads=8 ERR1044906_1.fastq.gz: 102.408s
+    fastp_d0bromir_gpu_binary threads=16 ERR1044906_1.fastq.gz: 103.456s
+    fastp_d0bromir_gpu_binary threads=16 ERR1044906_1.fastq.gz: 104.652s
+=== Done. 43 rows in GPU CSV ===
