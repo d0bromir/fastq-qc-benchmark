@@ -486,6 +486,27 @@ All build and execution scripts are provided in full as supplementary material
 deterministically from the raw CSV.  The system was otherwise idle during
 benchmarking; no other computationally intensive jobs were running simultaneously.
 
+\subsection{Output Correctness Verification}
+\label{sec:correctness}
+
+To confirm that the GPU modifications do not alter filtering logic or quality
+statistics, we ran both the CPU-only binary (\texttt{fastp\_d0bromir\_cpu}) and
+the GPU binary (\texttt{fastp\_d0bromir\_gpu}) on all four test files
+($-$w~8, output suppressed with \texttt{/dev/null}) and compared their
+\texttt{.json} reports field-by-field.  Eighteen statistics were checked per
+dataset: total reads, total bases, Q20/Q30 bases and rates, and GC content
+(before and after filtering), plus the five filtering-result counters (passed,
+low-quality, too many N, too short, too long).  Integer fields were required to
+match exactly; floating-point rates were required to agree within a relative
+tolerance of $0.01\%$.  For the Panel dataset we additionally compared the
+compressed FASTQ output byte-for-byte via MD5 checksum.
+
+All 18 fields matched exactly for every dataset, and the Panel FASTQ MD5 was
+identical between both binaries
+(\texttt{26fb6cd0258306885015c3880872f231}).  Full per-field comparison
+logs are available in the repository at
+\texttt{results/validation/validation\_report.txt} (commit~\texttt{d6b84ac}).
+
 % ===========================================================================
 \section{Results}
 \label{sec:results}
@@ -770,6 +791,13 @@ ratio more favourably.  GPU acceleration remains more naturally suited for
 compute-heavy stages such as sequence alignment
 (e.g.\ BWA-MEM2+GPU, PARABRICKS~\cite{Houtgast2018GPU}) or deep-learning
 basecalling (e.g.\ Guppy~\cite{Oxford2021Guppy}).
+
+\paragraph{Correctness.}
+We verified that the GPU modifications produce numerically identical output to
+the unmodified CPU binary (Section~\ref{sec:correctness}).  All 18 quality
+statistics fields (exact integer counts and floating-point rates) matched on
+every test dataset; the Panel FASTQ output was bit-for-bit identical
+(MD5~\texttt{26fb6cd0\ldots}).
 
 \subsection{Algorithm Performance vs.\ File Size}
 \label{sec:filesize}
