@@ -92,9 +92,10 @@ show that Falco achieves 1.7$\times$ speedup over FastQC in single-threaded
 operation; that fastp scales efficiently to 8 threads for large whole-genome
 sequencing (WGS) files before becoming I/O-bound; and, critically, that the
 GPU-enabled fork of fastp does \emph{not} reduce wall-clock time relative to
-its CPU counterpart on this workload profile---GPU launch overhead of
-${\approx}1.5$\,s consistently exceeds the time saved by CUDA kernels when the
-pipeline bottleneck is gzip decompression and sequential I/O.  We discuss
+its CPU counterpart on this workload profile---GPU overhead is variable
+(ranging from~$-0.5$ to~$+5$\,s depending on thread count) and provides
+no consistent benefit when the pipeline bottleneck is gzip decompression
+and sequential I/O.  We discuss
 implications for pipeline design on modern ARM-based HPC infrastructure.
 
 \medskip
@@ -259,8 +260,11 @@ directed to \texttt{/dev/null} to isolate processing time from write bandwidth.
 d0bromir/fastp is an experimental fork of fastp that augments it with CUDA GPU
 kernels for quality statistics accumulation, poly-G detection, and sliding-window
 trimming.  When CUDA is available, computationally intensive per-read operations
-are offloaded to the GPU via CUDA streams; the host CPU manages I/O and
-orchestration.  The repository (d0bromir/fastp, GitHub) targets Compute
+are offloaded to both GPUs via CUDA streams using a round-robin device selector;
+the host CPU manages I/O and orchestration.  Our build initialises
+\texttt{CudaStatsWrapper} instances for Device~0 and Device~1 at startup and
+dispatches batches alternately, achieving verified utilisation of both A100
+cards ($\sim$4\% SM, $\sim$428\,MiB each).  The repository (d0bromir/fastp, GitHub) targets Compute
 Capability 8.0+ (Ampere architecture, matching our A100 GPUs).  We built both
 a CPU-only binary (\texttt{fastp\_d0bromir\_cpu}, compiled without CUDA) and a
 GPU-enabled binary (\texttt{fastp\_d0bromir\_gpu}) from the same source tree.
@@ -477,7 +481,7 @@ each tool across all thread counts for each dataset.
     Falco   (CPU, 1T)           &  6.6\,s &  250\,s &  367\,s &  412\,s \\
     fastp OpenGene (CPU, 8T)    &  3.8\,s &   97\,s &  145\,s &  158\,s \\
     fastp d0bromir (CPU, 8--16T)&  3.8\,s &  100\,s &  146\,s &  160\,s \\
-    fastp d0bromir (GPU, 16T)   &  7.3\,s &  104\,s &  150\,s &  164\,s \\
+    fastp d0bromir (GPU, 8T)    &  7.4\,s &  103\,s &  151\,s &  166\,s \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -499,7 +503,7 @@ varies with worker thread count for fastp variants on the WGS-6G dataset.
     \midrule
     fastp OpenGene (CPU) & 585.7 & 302.0 & 152.8 &  96.8 &  98.1 & 104.0 \\
     fastp d0bromir (CPU) & 576.7 & 306.2 & 155.1 & 100.3 &  99.6 & 103.2 \\
-    fastp d0bromir (GPU) & 600.9 & 321.2 & 165.7 & 104.9 & 103.5 & 106.7 \\
+    fastp d0bromir (GPU) & 616.7 & 327.3 & 170.4 & 102.7 & 104.0 & 105.8 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -531,7 +535,7 @@ varies with worker thread count for fastp variants on the WGS-6G dataset.
     \addlegendentry{fastp d0bromir (CPU)}
     % fastp d0bromir GPU
     \addplot[red, mark=*, thick, dashed] coordinates {
-      (1,600.9) (2,321.2) (4,165.7) (8,104.9) (16,103.5) (32,106.7)
+      (1,616.7) (2,327.3) (4,170.4) (8,102.7) (16,104.0) (32,105.8)
     };
     \addlegendentry{fastp d0bromir (GPU)}
     % ideal linear scaling reference from fastp OG 1T
@@ -541,8 +545,8 @@ varies with worker thread count for fastp variants on the WGS-6G dataset.
   \end{tikzpicture}
   \caption{Wall-clock time vs.\ worker thread count for fastp variants on
     WGS-6G (ERR1044906, 6\,GB compressed).  Ideal linear scaling is shown for
-    reference.  Both CPU variants saturate at 8T; the GPU variant is
-    consistently slower than the equivalent CPU binary.}
+    reference.  Both CPU variants saturate at 8T; the GPU variant converges
+    to near-parity with the CPU binary at 8--16T, with $+5$\,s overhead at 4T.}
   \label{fig:scaling}
 \end{figure}
 
@@ -586,9 +590,9 @@ on the same GPU binary, isolating the net effect of GPU kernel dispatch.
     \toprule
     \textbf{Threads ($T$)} & \textbf{GPU mode (s)} & \textbf{CPU-forced (s)} & \textbf{GPU overhead} \\
     \midrule
-    4  & 166.4 & 165.0 & $+1.4$\,s \\
-    8  & 102.9 & 101.4 & $+1.5$\,s \\
-    16 & 103.0 & 101.9 & $+1.1$\,s \\
+    4  & 170.4 & 165.4 & $+5.0$\,s \\
+    8  & 102.7 & 103.3 & $-0.5$\,s \\
+    16 & 104.0 & 103.5 & $+0.5$\,s \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -611,7 +615,7 @@ WGS files.
     Falco              & 1.73$\times$ & 1.73$\times$ & 1.71$\times$ \\
     fastp OpenGene (8T) & 4.49$\times$ & 4.39$\times$ & 4.46$\times$ \\
     fastp d0bromir (CPU, 16T) & 4.36$\times$ & 4.36$\times$ & 4.39$\times$ \\
-    fastp d0bromir (GPU, 16T) & 4.20$\times$ & 4.22$\times$ & 4.30$\times$ \\
+    fastp d0bromir (GPU, 8T) & 4.23$\times$ & 4.21$\times$ & 4.24$\times$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -660,14 +664,16 @@ build, but could not eliminate it.
 
 \subsection{Key Finding 3: GPU Acceleration Does Not Benefit This Workload}
 
-The GPU-enabled fastp fork adds consistent overhead of $1.1$--$1.5$\,s versus
-the CPU-forced baseline (Table~\ref{tab:gpuoverhead}).  This result was
-reproduced reliably across all tested thread counts.  We attribute the overhead
-to GPU kernel launch latency: even an idle CUDA kernel dispatch on an A100
-incurs ${\approx}5$--$20\,\mu$s of host-side overhead per launch, and the
-fastp GPU fork launches per-batch kernels for each read chunk.  Across millions
-of reads and thousands of launches, this latency accumulates to
-${\approx}1.5$\,s.
+The GPU-enabled fastp fork shows variable overhead relative to the
+CPU-forced baseline (Table~\ref{tab:gpuoverhead}): $+5.0$\,s at 4\,threads,
+$-0.5$\,s at 8\,threads (GPU marginally faster), and $+0.5$\,s at
+16\,threads.  The elevated overhead at 4T reflects GPU kernel launch latency:
+an idle CUDA kernel dispatch on an A100 incurs ${\approx}5$--$20\,\mu$s of
+host-side overhead per launch, and the fastp GPU fork dispatches read-batch
+kernels across both A100 cards via a round-robin selector.  At 4T fewer
+batches are available per unit time, so per-launch latency dominates.
+At 8T and above, the benefit and cost of GPU dispatch roughly cancel,
+yielding near-zero net overhead ($\le 1$\,s).
 
 More fundamentally, the work performed by the GPU kernels (quality score
 summation, poly-G detection, sliding-window trimming) is memory-bandwidth
@@ -713,11 +719,12 @@ Examining wall-clock time as a function of compressed file size (148\,MB,
     contention.
 
   \item \textbf{fastp GPU mode} shows even stronger non-linearity: on the panel
-    file the GPU binary is \emph{twice as slow} as the CPU binary (7.3\,s vs.
+    file the GPU binary is \emph{twice as slow} as the CPU binary (7.4\,s vs.
     3.8\,s), because GPU initialisation and per-run CUDA context setup
     (${\approx}3$\,s) dominates a file that takes under 4\,s to process.  On
-    WGS files this fixed overhead becomes negligible but is replaced by the
-    steady-state per-batch dispatch cost ($1.1$--$1.5$\,s above CPU-forced).
+    WGS files this fixed overhead becomes negligible, and the steady-state
+    per-batch dispatch cost is near-zero ($\le 1$\,s) at the optimal 8T
+    configuration.
 \end{itemize}
 
 \noindent These observations imply a clear \textbf{file-size decision matrix}:
@@ -757,10 +764,10 @@ Neoverse N1 server with NVIDIA A100 GPUs.  Our principal conclusions are:
     speedup over FastQC at this setting; further threads yield no improvement.
 
   \item \textbf{GPU acceleration does not benefit FASTQ QC} at this data scale
-    with the current d0bromir fastp v1.2.2 implementation.  GPU launch overhead
-    of ${\approx}1.5$\,s consistently outweighs kernel savings because the
-    workload is I/O-bound and arithmetic intensity is too low to amortise PCIe
-    transfer costs.
+    with the current d0bromir fastp v1.2.2 implementation.  GPU overhead is
+    variable ($-0.5$ to $+5$\,s vs.\ CPU-forced) and provides no consistent
+    benefit because the workload is I/O-bound and arithmetic intensity is too
+    low to amortise PCIe transfer costs.
 
   \item \textbf{ARM HPC hardware is fully capable} of running FASTQ QC
     workloads at competitive throughput, and tools compiled with
@@ -988,12 +995,15 @@ observations are listed for WGS datasets where only one replicate was completed.
   cpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 8  & 100.329 \\
   cpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 16 &  99.596 \\
   cpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 32 & 103.152 \\
-  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 1  & 600.917 \\
-  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 2  & 321.181 \\
-  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 4  & 165.665 \\
-  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 8  & 104.914 \\
-  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 16 & 103.451 \\
-  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 32 & 106.723 \\
+  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 1  & 616.711 \\
+  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 2  & 327.296 \\
+  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 4  & 170.282 \\
+  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 4  & 170.428 \\
+  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 8  & 103.027 \\
+  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 8  & 102.408 \\
+  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 16 & 103.309 \\
+  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 16 & 104.652 \\
+  gpu & fastp\_d0bromir & ERR1044906 (WGS 6\,GB) & 32 & 105.806 \\
   % --- WGS 8.5 GB ---
   cpu & fastqc & ERR1044900 (WGS 8.5\,GB) & 1 & 634.469 \\
   cpu & falco  & ERR1044900 (WGS 8.5\,GB) & 1 & 367.136 \\
@@ -1009,12 +1019,12 @@ observations are listed for WGS datasets where only one replicate was completed.
   cpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 8  & 145.560 \\
   cpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 16 & 149.652 \\
   cpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 32 & 156.812 \\
-  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 1  & 293.801 \\
-  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 2  & 177.758 \\
-  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 4  & 150.386 \\
-  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 8  & 157.177 \\
-  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 16 & 152.142 \\
-  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 32 & 161.131 \\
+  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 1  & 310.436 \\
+  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 2  & 188.988 \\
+  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 4  & 152.698 \\
+  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 8  & 150.876 \\
+  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 16 & 153.291 \\
+  gpu & fastp\_d0bromir & ERR1044900 (WGS 8.5\,GB) & 32 & 159.926 \\
   % --- WGS 9.5 GB ---
   cpu & fastqc & ERR1044320 (WGS 9.5\,GB) & 1 & 703.481 \\
   cpu & falco  & ERR1044320 (WGS 9.5\,GB) & 1 & 411.964 \\
@@ -1030,12 +1040,12 @@ observations are listed for WGS datasets where only one replicate was completed.
   cpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 8  & 160.279 \\
   cpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 16 & 164.962 \\
   cpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 32 & 171.951 \\
-  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 1  & 326.780 \\
-  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 2  & 196.492 \\
-  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 4  & 166.461 \\
-  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 8  & 163.689 \\
-  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 16 & 167.474 \\
-  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 32 & 174.874 \\
+  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 1  & 348.977 \\
+  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 2  & 209.443 \\
+  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 4  & 165.885 \\
+  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 8  & 166.537 \\
+  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 16 & 166.990 \\
+  gpu & fastp\_d0bromir & ERR1044320 (WGS 9.5\,GB) & 32 & 176.088 \\
   % --- FastQC multi-file ---
   cpu & fastqc\_multifile & panel\_all\_R1 (4 files) & 1 & 60.360 \\
   cpu & fastqc\_multifile & panel\_all\_R1 (4 files) & 1 & 60.369 \\
@@ -1046,12 +1056,15 @@ observations are listed for WGS datasets where only one replicate was completed.
   cpu & fastqc\_multifile & panel\_all\_R1 (4 files) & 8 & 18.485 \\
   cpu & fastqc\_multifile & panel\_all\_R1 (4 files) & 8 & 18.455 \\
   % --- GPU binary CPU-forced vs GPU mode comparison ---
-  cpu\_forced & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 4  & 165.011 \\
-  gpu         & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 4  & 166.388 \\
-  cpu\_forced & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 8  & 101.447 \\
-  gpu         & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 8  & 102.925 \\
-  cpu\_forced & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 16 & 101.888 \\
-  gpu         & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 16 & 102.962 \\
+  cpu\_forced & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 4  & 165.356 \\
+  gpu         & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 4  & 170.282 \\
+  gpu         & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 4  & 170.428 \\
+  cpu\_forced & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 8  & 103.259 \\
+  gpu         & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 8  & 103.027 \\
+  gpu         & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 8  & 102.408 \\
+  cpu\_forced & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 16 & 103.456 \\
+  gpu         & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 16 & 103.309 \\
+  gpu         & fastp\_d0bromir\_gpubinary & ERR1044906 (WGS 6\,GB) & 16 & 104.652 \\
 \end{longtable}
 
 % ---------------------------------------------------------------------------

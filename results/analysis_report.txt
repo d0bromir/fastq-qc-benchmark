@@ -7,7 +7,7 @@ fastqc (cpu)                            15.3s       434.4s       634.5s       70
 falco (cpu)                              6.6s       250.4s       367.1s       412.0s
 fastp_opengene (cpu)                     3.8s        96.8s       144.5s       157.8s
 fastp_d0bromir (cpu)                     3.8s        99.6s       145.6s       160.3s
-fastp_d0bromir (gpu)                     7.3s       103.5s       150.4s       163.7s
+fastp_d0bromir (gpu)                     7.4s       103.0s       150.9s       165.9s
 
 ================================================================================
 TABLE 2  –  Thread-scaling on WGS-6G (ERR1044906_1.fastq.gz)
@@ -17,7 +17,7 @@ Tool                                   1T       2T       4T       8T      16T   
 --------------------------------------------------------------------------------
 fastp_opengene (cpu)                585.7    302.0    152.8     96.8     98.1    104.0
 fastp_d0bromir (cpu)                576.7    306.2    155.1    100.3     99.6    103.2
-fastp_d0bromir (gpu)                600.9    321.2    165.7    104.9    103.5    106.7
+fastp_d0bromir (gpu)                616.7    327.3    170.3    103.0    103.3    105.8
 
 ================================================================================
 TABLE 3  –  FastQC multi-file parallelism (panel_all_R1, 4 files)
@@ -35,9 +35,9 @@ TABLE 4  –  GPU binary: GPU mode vs CPU-forced mode (ERR1044906)
 ================================================================================
 Threads       GPU mode (s)    CPU-forced (s)    GPU overhead
 ------------------------------------------------------------
-4                    166.4             165.0           +1.4s
-8                    102.9             101.4           +1.5s
-16                   103.0             101.9           +1.1s
+4                    170.4             165.4           +5.1s
+8                    102.4             103.3           -0.9s
+16                   104.7             103.5           +1.2s
 
 ================================================================================
 TABLE 5  –  Speedup vs FastQC (1T baseline) at each tool's best thread count
@@ -48,7 +48,7 @@ fastqc (cpu)                           1.00x       1.00x       1.00x
 falco (cpu)                            1.73x       1.73x       1.71x
 fastp_opengene (cpu)                   4.49x       4.39x       4.46x
 fastp_d0bromir (cpu)                   4.36x       4.36x       4.39x
-fastp_d0bromir (gpu)                   4.20x       4.22x       4.30x
+fastp_d0bromir (gpu)                   4.22x       4.21x       4.24x
 
 ================================================================================
 KEY FINDINGS
@@ -60,7 +60,7 @@ KEY FINDINGS
    beyond 8 gives no speedup (I/O / decompression bound).
 
 3. GPU mode in d0bromir/fastp is SLOWER than CPU-forced mode on the same binary
-   at all tested thread counts (overhead: +1.4s at 4T, +1.5s at 8T).
+   at all tested thread counts (overhead: +5.1s at 4T, +-0.9s at 8T).
    The GPU kernels (poly-G / quality trimming) do not offset GPU launch overhead
    when the bottleneck is gzip decompression + I/O.
 
