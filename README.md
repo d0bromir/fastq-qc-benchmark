@@ -11,7 +11,7 @@
 
 A reproducible benchmarking suite comparing four FASTQ quality-control tools
 across multiple file sizes, thread counts, and compute modes (CPU / GPU) on a
-128-core ARM Neoverse N2 server with dual NVIDIA A100-80GB GPUs.
+128-core ARM Neoverse N1 server with dual NVIDIA A100-80GB GPUs.
 
 | Tool | Version | Mode | Language |
 |------|---------|------|----------|
@@ -26,7 +26,7 @@ across multiple file sizes, thread counts, and compute modes (CPU / GPU) on a
 
 | Component | Specification |
 |-----------|---------------|
-| Architecture | ARM AArch64 (Neoverse N2) |
+| Architecture | ARM AArch64 (Neoverse N1) |
 | CPU logical cores | 128 |
 | System RAM | 246 GiB |
 | GPU | 2 × NVIDIA A100-SXM4 80 GB (Compute Capability 8.0) |

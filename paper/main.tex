@@ -85,7 +85,7 @@ acceleration.  In this study we perform a systematic performance benchmarking
 of four widely used FASTQ QC tools---\textbf{FastQC}, \textbf{Falco}, and two
 builds of \textbf{fastp} (the canonical OpenGene release and a GPU-augmented
 fork by d0bromir)---on a high-performance computing (HPC) node equipped with a
-128-core ARM Neoverse N2 processor and two NVIDIA A100-80GB GPUs.  We evaluate
+128-core ARM Neoverse N1 processor and two NVIDIA A100-80GB GPUs.  We evaluate
 wall-clock runtime across four real sequencing datasets ranging from 148\,MB to
 9.5\,GB in compressed size, sweeping thread counts from 1 to 32.  Our results
 show that Falco achieves 1.7$\times$ speedup over FastQC in single-threaded
@@ -140,7 +140,7 @@ architectural trends has not been systematically evaluated for FASTQ QC tools.
 This paper makes the following contributions:
 \begin{itemize}
   \item A rigorous, reproducible benchmark of four FASTQ QC tools on a
-    128-core ARM Neoverse N2 server with NVIDIA A100 GPUs, spanning
+    128-core ARM Neoverse N1 server with NVIDIA A100 GPUs, spanning
     multi-threaded CPU scaling and GPU-accelerated operation.
   \item Empirical characterisation of the I/O bottleneck that limits CPU
     thread scaling beyond 8 threads for large WGS files.
@@ -238,7 +238,7 @@ is API-compatible (same HTML output format, same flags) but substantially
 faster.  It exploits data locality and avoids Java JVM overhead, and is compiled
 with aggressive optimisation.  Falco is strictly single-threaded per file;
 it does not support intra-file parallelism.  In our tests Falco was compiled
-with \texttt{-O3~-march=native} targeting the Neoverse N2 microarchitecture.
+with \texttt{-O3~-march=native} targeting the Neoverse N1 microarchitecture.
 
 \subsection{fastp (OpenGene)}
 \label{sec:fastp-og}
@@ -296,7 +296,7 @@ in Table~\ref{tab:hardware}.
     \textbf{Component} & \textbf{Specification} \\
     \midrule
     Architecture       & ARM AArch64 \\
-    CPU microarch      & ARM Neoverse N2 (Cortex-A78C class; implementer 0x41, part 0xd0c) \\
+    CPU microarch      & ARM Neoverse N1 (implementer 0x41, part 0xd0c) \\
     Logical cores      & 128 \\
     System RAM         & 246\,GiB \\
     GPU(s)             & 2 $\times$ NVIDIA A100-SXM4 80\,GB PCIe \\
@@ -341,7 +341,7 @@ Table~\ref{tab:versions} summarises the software versions and key build flags.
 fastp (both variants) was linked against Intel ISA-L (\texttt{libisal}) for
 SIMD-accelerated decompression and libdeflate for deflate operations, both
 compiled with \texttt{-march=native} to exploit ARM SVE/NEON vector
-instructions available on the Neoverse N2.
+instructions available on the Neoverse N1.
 
 % ===========================================================================
 \section{Input Data}
@@ -630,7 +630,7 @@ drop-in replacement in any pipeline that invokes FastQC in single-threaded mode.
 The speedup is attributable to three factors: (i)~absence of JVM startup and
 just-in-time compilation overhead; (ii)~more cache-friendly data structures in
 the C++ implementation; and (iii)~SIMD-friendly inner loops that the GCC
-\texttt{-march=native} flag exposes on the Neoverse N2 NEON/SVE units.
+\texttt{-march=native} flag exposes on the Neoverse N1 NEON/SVE units.
 
 For QC-only pipelines (no trimming required), Falco represents the best single-
 threaded option and requires no configuration of thread counts.
@@ -731,7 +731,7 @@ Examining wall-clock time as a function of compressed file size (148\,MB,
 
 \subsection{ARM Platform Observations}
 
-The ARM Neoverse N2 delivers competitive throughput for these bioinformatics
+The ARM Neoverse N1 delivers competitive throughput for these bioinformatics
 workloads.  fastp compiled with \texttt{-march=native} exploits Advanced SIMD
 (NEON) intrinsics; the libisal decompression library targets ARMv8.2-A SVE
 when available.  Observed throughput on WGS-6G at 8T (${\approx}60$\,MB/s
@@ -745,7 +745,7 @@ viable for genomics QC workloads and do not require x86 dependencies.
 % ===========================================================================
 
 We have performed a systematic benchmarking of four FASTQ QC tools on an ARM
-Neoverse N2 server with NVIDIA A100 GPUs.  Our principal conclusions are:
+Neoverse N1 server with NVIDIA A100 GPUs.  Our principal conclusions are:
 
 \begin{enumerate}
   \item \textbf{Falco is the recommended drop-in replacement for FastQC} in
