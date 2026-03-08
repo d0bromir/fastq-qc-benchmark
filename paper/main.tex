@@ -25,6 +25,7 @@
 \usepackage{parskip}
 \usepackage{float}
 \usepackage{multirow}
+\usepackage[inline]{enumitem}
 \newcommand{\doi}[1]{\href{https://doi.org/#1}{doi:{#1}}}
 \usepackage{siunitx}
 \usepackage{pgfplots}
@@ -748,7 +749,7 @@ a round-robin selector.  At low thread counts, fewer batches are available per
 unit time so per-launch latency dominates.
 
 Three targeted optimisations in v2 eliminate this overhead:
-\begin{enumerate*}[(i)]
+\begin{enumerate*}[label=(\roman*)]
   \item a warp-per-read CUDA kernel replaces the simple one-thread-per-read
         kernel, improving SM utilisation from ${\approx}4\%$ to
         ${\approx}60\%$;
