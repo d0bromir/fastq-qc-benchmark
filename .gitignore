@@ -1,0 +1,23 @@
+# LaTeX build artefacts
+paper/main.aux
+paper/main.log
+paper/main.out
+paper/main.toc
+paper/main.lof
+paper/main.lot
+paper/main.bbl
+paper/main.blg
+paper/main.fls
+paper/main.fdb_latexmk
+paper/main.synctex.gz
+
+# Large build / run logs (keep the CSV and report, skip verbose logs)
+results/05_build.log
+results/06_run.log
+
+# Compiled binaries (built from source by the scripts)
+tools/
+
+# Python byte-code
+__pycache__/
+*.pyc
