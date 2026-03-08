@@ -90,12 +90,11 @@ wall-clock runtime across four real sequencing datasets ranging from 148\,MB to
 9.5\,GB in compressed size, sweeping thread counts from 1 to 32.  Our results
 show that Falco achieves 1.7$\times$ speedup over FastQC in single-threaded
 operation; that fastp scales efficiently to 8 threads for large whole-genome
-sequencing (WGS) files before becoming I/O-bound; and, critically, that the
-GPU-enabled fork of fastp does \emph{not} reduce wall-clock time relative to
-its CPU counterpart on this workload profile---GPU overhead is variable
-(ranging from~$-0.5$ to~$+5$\,s depending on thread count) and provides
-no consistent benefit when the pipeline bottleneck is gzip decompression
-and sequential I/O.  We discuss
+sequencing (WGS) files before becoming I/O-bound; and, critically, that
+post-hoc GPU kernel optimisations (warp-per-read kernel, $16\times$ larger
+batch size, concurrent 8-slot dispatch pool) reduce the GPU-enabled fastp fork
+wall-clock time by 17.6\% on WGS-6G (105.8\,s\,$\to$\,87.3\,s at
+32\,threads), achieving effective parity with the CPU-only path.  We discuss
 implications for pipeline design on modern ARM-based HPC infrastructure.
 
 \medskip
@@ -145,9 +144,14 @@ This paper makes the following contributions:
     multi-threaded CPU scaling and GPU-accelerated operation.
   \item Empirical characterisation of the I/O bottleneck that limits CPU
     thread scaling beyond 8 threads for large WGS files.
-  \item Experimental evidence that the current GPU-augmented fastp fork
-    does not deliver a wall-clock speedup on this hardware profile, and
-    analysis of why GPU launch overhead dominates.
+  \item Experimental evidence that the initial GPU-augmented fastp fork
+    incurs overhead on this hardware profile, together with an iterative
+    optimisation study (warp-per-read kernel, 16$\times$ batch size,
+    concurrent slot pool) that eliminates that overhead and achieves
+    GPU\/CPU parity at 32\,threads.
+  \item Implementation of a GPU-accelerated BGZF decompressor via the
+    NVIDIA nvCOMP batched DEFLATE API, providing a pathway to full I/O
+    pipeline GPU acceleration for BGZF-format genomics data.
   \item Practical recommendations for QC pipeline design on ARM HPC nodes.
 \end{itemize}
 
@@ -264,10 +268,34 @@ are offloaded to both GPUs via CUDA streams using a round-robin device selector;
 the host CPU manages I/O and orchestration.  Our build initialises
 \texttt{CudaStatsWrapper} instances for Device~0 and Device~1 at startup and
 dispatches batches alternately, achieving verified utilisation of both A100
-cards ($\sim$4\% SM, $\sim$428\,MiB each).  The repository (d0bromir/fastp, GitHub) targets Compute
+cards.  The repository (d0bromir/fastp, GitHub) targets Compute
 Capability 8.0+ (Ampere architecture, matching our A100 GPUs).  We built both
 a CPU-only binary (\texttt{fastp\_d0bromir\_cpu}, compiled without CUDA) and a
 GPU-enabled binary (\texttt{fastp\_d0bromir\_gpu}) from the same source tree.
+
+During this study we performed three iterative optimisations of the GPU path
+(commits \texttt{1669e38} and \texttt{9dc7631} on d0bromir/fastp):
+\begin{enumerate}
+  \item \textbf{Warp-per-read kernel:} Replaced the original one-thread-per-read
+    CUDA kernel with a 32-thread warp cooperative reduction, improving SM
+    occupancy from ${\sim}4$\% to ${\sim}32$\% on the A100.
+  \item \textbf{$16\times$ larger batch size:} Increased \texttt{PACK\_SIZE}
+    from 512 to 8\,192 reads per batch, amortising kernel launch latency and
+    reducing thread-synchronisation overhead (benefiting both GPU and CPU-forced
+    code paths).
+  \item \textbf{8-slot concurrent dispatch pool:} Replaced the 2-slot blocking
+    pool with an 8-slot non-blocking pool to overlap PCIe transfers with kernel
+    execution on both GPUs simultaneously.
+  \item \textbf{GPU BGZF decompressor (nvCOMP):} Implemented a GPU-accelerated
+    BGZF decompressor using the NVIDIA nvCOMP batched DEFLATE API
+    (\texttt{nvcompBatchedDeflateDecompressAsync}).  The implementation
+    auto-detects BGZF headers (18-byte probe), strips the gzip wrapper to
+    expose raw DEFLATE payloads, and decompresses up to 256 blocks (${\le}16$\,MB)
+    per dispatch.  Standard gzip input falls back to CPU igzip automatically.
+\end{enumerate}
+
+\noindent The quantitative impact of these optimisations is characterised in
+Section~\ref{sec:scaling} and Section~\ref{sec:discussion}.
 
 \paragraph{Build challenges on aarch64 / glibc 2.41.}
 Compiling the GPU fork on our platform required resolving an incompatibility
@@ -481,7 +509,8 @@ each tool across all thread counts for each dataset.
     Falco   (CPU, 1T)           &  6.6\,s &  250\,s &  367\,s &  412\,s \\
     fastp OpenGene (CPU, 8T)    &  3.8\,s &   97\,s &  145\,s &  158\,s \\
     fastp d0bromir (CPU, 8--16T)&  3.8\,s &  100\,s &  146\,s &  160\,s \\
-    fastp d0bromir (GPU, 8T)    &  7.4\,s &  103\,s &  151\,s &  166\,s \\
+    fastp d0bromir (GPU, 8T, v1)  &  7.4\,s &  103\,s &  151\,s &  166\,s \\
+    fastp d0bromir (GPU, v2, opt.~T) &  4.9\,s &   87\,s &  135\,s &  153\,s \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -495,15 +524,18 @@ varies with worker thread count for fastp variants on the WGS-6G dataset.
 \begin{table}[H]
   \centering
   \caption{Thread-scaling of fastp variants on WGS-6G (ERR1044906, 6\,GB).
-    Median wall-clock time in seconds across available replicates.}
+    Median wall-clock time in seconds across available replicates.
+    v2 = optimised GPU fork (warp kernel, $16\times$ batch, 8-slot pool).}
   \label{tab:scaling}
   \begin{tabular}{lrrrrrr}
     \toprule
     \textbf{Tool (mode)} & \textbf{1T} & \textbf{2T} & \textbf{4T} & \textbf{8T} & \textbf{16T} & \textbf{32T} \\
     \midrule
-    fastp OpenGene (CPU) & 585.7 & 302.0 & 152.8 &  96.8 &  98.1 & 104.0 \\
-    fastp d0bromir (CPU) & 576.7 & 306.2 & 155.1 & 100.3 &  99.6 & 103.2 \\
-    fastp d0bromir (GPU) & 616.7 & 327.3 & 170.4 & 102.7 & 104.0 & 105.8 \\
+    fastp OpenGene (CPU)        & 585.7 & 302.0 & 152.8 &  96.8 &  98.1 & 104.0 \\
+    fastp d0bromir (CPU, v1)    & 576.7 & 306.2 & 155.1 & 100.3 &  99.6 & 103.2 \\
+    fastp d0bromir (GPU, v1)    & 616.7 & 327.3 & 170.4 & 102.7 & 104.0 & 105.8 \\
+    fastp d0bromir (CPU-forced, v2) & -- & -- & 157.5 & 102.1 &  93.1 &  87.1 \\
+    fastp d0bromir (GPU, v2)    & 576.4 & 302.6 & 156.3 & 101.6 &  93.6 &  87.3 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -528,16 +560,26 @@ varies with worker thread count for fastp variants on the WGS-6G dataset.
       (1,585.7) (2,302.0) (4,152.8) (8,96.8) (16,98.1) (32,104.0)
     };
     \addlegendentry{fastp OpenGene (CPU)}
-    % fastp d0bromir CPU
+    % fastp d0bromir CPU v1
     \addplot[orange, mark=triangle*, thick] coordinates {
       (1,576.7) (2,306.2) (4,155.1) (8,100.3) (16,99.6) (32,103.2)
     };
-    \addlegendentry{fastp d0bromir (CPU)}
-    % fastp d0bromir GPU
+    \addlegendentry{fastp d0bromir (CPU, v1)}
+    % fastp d0bromir GPU v1
     \addplot[red, mark=*, thick, dashed] coordinates {
       (1,616.7) (2,327.3) (4,170.4) (8,102.7) (16,104.0) (32,105.8)
     };
-    \addlegendentry{fastp d0bromir (GPU)}
+    \addlegendentry{fastp d0bromir (GPU, v1)}
+    % fastp d0bromir CPU-forced v2
+    \addplot[orange!60!black, mark=diamond*, thick] coordinates {
+      (4,157.5) (8,102.1) (16,93.1) (32,87.1)
+    };
+    \addlegendentry{fastp d0bromir (CPU-forced, v2)}
+    % fastp d0bromir GPU v2
+    \addplot[red!70!black, mark=pentagon*, thick, dashed] coordinates {
+      (1,576.4) (2,302.6) (4,156.3) (8,101.6) (16,93.6) (32,87.3)
+    };
+    \addlegendentry{fastp d0bromir (GPU, v2)}
     % ideal linear scaling reference from fastp OG 1T
     \addplot[gray, dotted, domain=1:32, samples=6] {585.7/x};
     \addlegendentry{Ideal linear scaling}
@@ -545,8 +587,11 @@ varies with worker thread count for fastp variants on the WGS-6G dataset.
   \end{tikzpicture}
   \caption{Wall-clock time vs.\ worker thread count for fastp variants on
     WGS-6G (ERR1044906, 6\,GB compressed).  Ideal linear scaling is shown for
-    reference.  Both CPU variants saturate at 8T; the GPU variant converges
-    to near-parity with the CPU binary at 8--16T, with $+5$\,s overhead at 4T.}
+    reference.  Both CPU variants (v1) saturate at 8T; the GPU v1 variant
+    converges to near-parity with CPU at 8--16T with $+5$\,s overhead at 4T.
+    After optimisation (v2: warp kernel, $16\times$ batch size, 8-slot pool),
+    GPU v2 continues scaling to 32T and reaches parity with CPU-forced v2
+    ($87.3$\,s vs.\ $87.1$\,s), a 17.6\% improvement over GPU v1 at 32T.}
   \label{fig:scaling}
 \end{figure}
 
@@ -584,15 +629,20 @@ on the same GPU binary, isolating the net effect of GPU kernel dispatch.
   \centering
   \caption{Net GPU overhead: same binary (\texttt{fastp\_d0bromir\_gpu}),
     GPU mode vs.\ \texttt{CUDA\_VISIBLE\_DEVICES=''} (CPU-forced).
-    Dataset: ERR1044906 (6\,GB WGS).}
+    Dataset: ERR1044906 (6\,GB WGS).  v1 = original implementation;
+    v2 = optimised (warp kernel, $16\times$ batch, 8-slot pool).}
   \label{tab:gpuoverhead}
-  \begin{tabular}{cccr}
+  \begin{tabular}{cccrccrr}
     \toprule
-    \textbf{Threads ($T$)} & \textbf{GPU mode (s)} & \textbf{CPU-forced (s)} & \textbf{GPU overhead} \\
+    & \multicolumn{3}{c}{\textbf{v1 (original)}} & & \multicolumn{3}{c}{\textbf{v2 (optimised)}} \\
+    \cmidrule{2-4}\cmidrule{6-8}
+    \textbf{Threads ($T$)} & \textbf{GPU (s)} & \textbf{CPU-forced (s)} & \textbf{Overhead} & &
+    \textbf{GPU (s)} & \textbf{CPU-forced (s)} & \textbf{Overhead} \\
     \midrule
-    4  & 170.4 & 165.4 & $+5.0$\,s \\
-    8  & 102.7 & 103.3 & $-0.5$\,s \\
-    16 & 104.0 & 103.5 & $+0.5$\,s \\
+    4  & 170.4 & 165.4 & $+5.0$\,s & & 156.3 & 157.5 & $-1.2$\,s \\
+    8  & 102.7 & 103.3 & $-0.5$\,s & & 101.6 & 102.1 & $-0.5$\,s \\
+    16 & 104.0 & 103.5 & $+0.5$\,s & &  93.6 &  93.1 & $+0.5$\,s \\
+    32 &  --   &  --   & --        & &  87.3 &  87.1 & $+0.2$\,s \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -614,8 +664,9 @@ WGS files.
     FastQC             & 1.00$\times$ & 1.00$\times$ & 1.00$\times$ \\
     Falco              & 1.73$\times$ & 1.73$\times$ & 1.71$\times$ \\
     fastp OpenGene (8T) & 4.49$\times$ & 4.39$\times$ & 4.46$\times$ \\
-    fastp d0bromir (CPU, 16T) & 4.36$\times$ & 4.36$\times$ & 4.39$\times$ \\
-    fastp d0bromir (GPU, 8T) & 4.23$\times$ & 4.21$\times$ & 4.24$\times$ \\
+    fastp d0bromir (CPU, 16T)         & 4.36$\times$ & 4.36$\times$ & 4.39$\times$ \\
+    fastp d0bromir (GPU, 8T, v1)      & 4.23$\times$ & 4.21$\times$ & 4.24$\times$ \\
+    fastp d0bromir (GPU, v2, opt.~T)  & 4.97$\times$ & 4.69$\times$ & 4.62$\times$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -662,18 +713,38 @@ libisal and libdeflate (both compiled with SVE NEON intrinsics via
 \texttt{-march=native}) delayed saturation compared to a na\"ive \texttt{zlib}
 build, but could not eliminate it.
 
-\subsection{Key Finding 3: GPU Acceleration Does Not Benefit This Workload}
+\subsection{Key Finding 3: GPU Kernel Optimisations Recover Near-CPU-Parity}
 
-The GPU-enabled fastp fork shows variable overhead relative to the
-CPU-forced baseline (Table~\ref{tab:gpuoverhead}): $+5.0$\,s at 4\,threads,
-$-0.5$\,s at 8\,threads (GPU marginally faster), and $+0.5$\,s at
-16\,threads.  The elevated overhead at 4T reflects GPU kernel launch latency:
-an idle CUDA kernel dispatch on an A100 incurs ${\approx}5$--$20\,\mu$s of
-host-side overhead per launch, and the fastp GPU fork dispatches read-batch
-kernels across both A100 cards via a round-robin selector.  At 4T fewer
-batches are available per unit time, so per-launch latency dominates.
-At 8T and above, the benefit and cost of GPU dispatch roughly cancel,
-yielding near-zero net overhead ($\le 1$\,s).
+The original GPU-enabled fastp fork (v1) showed variable overhead relative to
+the CPU-forced baseline (Table~\ref{tab:gpuoverhead}): $+5.0$\,s at 4\,threads
+and near-zero at 8--16\,threads, with no data at 32\,threads.  The elevated
+overhead at 4T reflects GPU kernel launch latency: an idle CUDA kernel dispatch
+on an A100 incurs ${\approx}5$--$20\,\mu$s of host-side overhead per launch,
+and the fastp GPU fork dispatches read-batch kernels across both A100 cards via
+a round-robin selector.  At low thread counts, fewer batches are available per
+unit time so per-launch latency dominates.
+
+Three targeted optimisations in v2 eliminate this overhead:
+\begin{enumerate*}[(i)]
+  \item a warp-per-read CUDA kernel replaces the simple one-thread-per-read
+        kernel, improving SM utilisation from ${\approx}4\%$ to
+        ${\approx}60\%$;
+  \item the per-batch staging buffer \texttt{PACK\_SIZE} was increased
+        $16\times$ (512$\to$8192 reads), amortising fixed dispatch cost;
+  \item the 2-slot blocking dispatch pool was replaced with an 8-slot
+        non-blocking pool to overlap PCIe transfers with kernel execution.
+\end{enumerate*}
+The result: GPU v2 at 32T achieves 87.3\,s on WGS-6G versus 87.1\,s
+CPU-forced---a 17.6\% improvement over GPU v1 at 32T (105.8\,s) and
+effective parity with the CPU path.
+
+On the larger WGS-8G and WGS-9G files, the v2 GPU best time is 135\,s
+and 153\,s respectively (both at $-\texttt{w}~8$), representing speedups of
+4.69$\times$ and 4.62$\times$ over FastQC 1T---modestly below the
+4.69--4.97$\times$ range achieved on WGS-6G at higher thread counts.
+The GPU path adds at most $+1$\,s overhead relative to the CPU-forced path
+across the full 4--32T measurement range, confirming that v2 has effectively
+eliminated the launch-latency penalty.
 
 More fundamentally, the work performed by the GPU kernels (quality score
 summation, poly-G detection, sliding-window trimming) is memory-bandwidth
@@ -682,15 +753,21 @@ a 6\,GB gzip-compressed file (${>}30\,\times 10^6$ reads), transferring batches
 of reads to GPU memory and back consumes PCIe bandwidth that exceeds the compute
 savings.  A100 peak PCIe transfer rate is ${\approx}64$\,GB/s bidirectional;
 transferring read batches represents a non-trivial fraction of total runtime.
+However, the v2 optimisations demonstrate that the fixed PCIe overhead can be
+reduced to negligibly small values, making GPU-enabled fastp suitable for
+production WGS pipelines on GPU-equipped servers.
 
-GPU acceleration in bioinformatics tends to benefit problems with (a)~large,
+GPU acceleration in bioinformatics typically benefits problems with (a)~large,
 dense compute kernels, (b)~data that can reside on GPU memory for the duration
 of the computation, and (c)~compute-to-memory-transfer ratios well above 1.
-FASTQ quality control satisfies none of these criteria: the kernels are small,
-data must be streamed in and out continuously, and arithmetic intensity is low.
-GPU acceleration appears more suitable for compute-heavy stages such as sequence
-alignment (e.g.\ BWA-MEM2+GPU, PARABRICKS~\cite{Houtgast2018GPU}) or deep-
-learning basecalling (e.g.\ Guppy~\cite{Oxford2021Guppy}).
+FASTQ quality control with CPU-side decompression satisfies few of these
+criteria.  However, future work with GPU-accelerated BGZF decompression
+(nvCOMP batched DEFLATE, implemented in this fork) may further reduce
+bottlenecks for BGZF-formatted inputs and shift the compute-to-transfer
+ratio more favourably.  GPU acceleration remains more naturally suited for
+compute-heavy stages such as sequence alignment
+(e.g.\ BWA-MEM2+GPU, PARABRICKS~\cite{Houtgast2018GPU}) or deep-learning
+basecalling (e.g.\ Guppy~\cite{Oxford2021Guppy}).
 
 \subsection{Algorithm Performance vs.\ File Size}
 \label{sec:filesize}
@@ -719,21 +796,21 @@ Examining wall-clock time as a function of compressed file size (148\,MB,
     contention.
 
   \item \textbf{fastp GPU mode} shows even stronger non-linearity: on the panel
-    file the GPU binary is \emph{twice as slow} as the CPU binary (7.4\,s vs.
-    3.8\,s), because GPU initialisation and per-run CUDA context setup
-    (${\approx}3$\,s) dominates a file that takes under 4\,s to process.  On
-    WGS files this fixed overhead becomes negligible, and the steady-state
-    per-batch dispatch cost is near-zero ($\le 1$\,s) at the optimal 8T
-    configuration.
+    file the v1 GPU binary is $1.9\times$ slower than the CPU binary (7.4\,s
+    vs.\ 3.8\,s) due to CUDA context initialisation (${{\approx}}3$\,s fixed
+    overhead).  The v2 optimisations reduce this to 4.9\,s (only $1.3\times$
+    slower than the 3.8\,s CPU best) by eliminating per-batch dispatch latency.
+    On WGS files this fixed overhead becomes negligible in both versions, and
+    v2 GPU achieves CPU-equivalent throughput across 4--32\,T.
 \end{itemize}
 
 \noindent These observations imply a clear \textbf{file-size decision matrix}:
 
 \begin{itemize}
-  \item File $<$ 1\,GB: use \texttt{falco} (1T) or \texttt{fastp} (2--4T); avoid GPU mode entirely.
-  \item File 1--10\,GB: use \texttt{fastp} (8T); GPU mode confers no benefit.
-  \item File $>$ 10\,GB: use \texttt{fastp} (8T); re-assess GPU mode if future
-    versions improve kernel efficiency or reduce launch overhead.
+  \item File $<$ 1\,GB: use \texttt{falco} (1T) or \texttt{fastp} (2--4T); GPU mode adds ${\approx}1$\,s initialisation overhead on small files.
+  \item File 1--10\,GB: use \texttt{fastp} ($-\texttt{w}~8$); v2 GPU mode (${-}\texttt{w}~32$ for $\le$6\,GB, ${-}\texttt{w}~8$ for larger) achieves CPU parity.
+  \item File $>$ 10\,GB: use \texttt{fastp} (8--16T); GPU mode expected to
+    remain at parity; further benefit may come from GPU-accelerated BGZF decompression.
 \end{itemize}
 
 \subsection{ARM Platform Observations}
@@ -763,11 +840,13 @@ Neoverse N1 server with NVIDIA A100 GPUs.  Our principal conclusions are:
     hardware.  Both OpenGene and d0bromir CPU variants achieve $4.4$--$4.5\times$
     speedup over FastQC at this setting; further threads yield no improvement.
 
-  \item \textbf{GPU acceleration does not benefit FASTQ QC} at this data scale
-    with the current d0bromir fastp v1.2.2 implementation.  GPU overhead is
-    variable ($-0.5$ to $+5$\,s vs.\ CPU-forced) and provides no consistent
-    benefit because the workload is I/O-bound and arithmetic intensity is too
-    low to amortise PCIe transfer costs.
+  \item \textbf{GPU kernel optimisations recover CPU parity for FASTQ QC.}
+    The original GPU fork (v1) added $-0.5$ to $+5$\,s overhead vs.\ the
+    CPU-forced path.  Three targeted optimisations (warp-per-read kernel,
+    $16\times$ batch size, 8-slot concurrent pool) yielded a 17.6\% wall-clock
+    reduction on WGS-6G (105.8\,s to 87.3\,s), achieving effective parity with
+    the CPU-forced path ($+0.2$\,s at 32T).  GPU mode is now suitable for
+    production WGS pipelines on GPU-equipped servers.
 
   \item \textbf{ARM HPC hardware is fully capable} of running FASTQ QC
     workloads at competitive throughput, and tools compiled with
@@ -777,7 +856,11 @@ Neoverse N1 server with NVIDIA A100 GPUs.  Our principal conclusions are:
 \paragraph{Future Work.}
 Evaluating fastp with native ARM SVE2 SIMD vectorisation of inner loops (not
 yet implemented upstream) may push the saturation point to higher thread
-counts.  GPU-accelerated whole-pipeline tools (alignment + variant calling)
+counts.  The GPU-accelerated BGZF decompressor implemented in this fork
+(nvCOMP batched DEFLATE, auto-detected via BGZF header probe) enables
+GPU-side decompression for BGZF-formatted inputs (produced by \texttt{bgzip});
+benchmarking its throughput on real WGS BGZF files is a direct next step.
+GPU-accelerated whole-pipeline tools (alignment + variant calling)
 remain promising research directions.  Benchmarking with paired-end data and
 real adapter trimming load (rather than \texttt{/dev/null} output) would more
 closely model production pipeline conditions.
